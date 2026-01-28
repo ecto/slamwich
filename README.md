@@ -1,6 +1,10 @@
-# slamwich 🥪
+<p align="center">
+  <img src="assets/logo.svg" width="300" alt="slamwich logo">
+</p>
 
-A 3D LiDAR SLAM library for Rust.
+<h1 align="center">slamwich 🥪</h1>
+
+<p align="center">A 3D LiDAR SLAM library for Rust.</p>
 
 <p align="center">
   <img src="assets/slam-ui.jpg" width="500" alt="SLAM visualization">

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140">
+  <!-- Top bun -->
+  <path d="M20 55 Q20 15 100 15 Q180 15 180 55 L180 65 Q100 70 20 65 Z" fill="#E8943A"/>
+  <path d="M25 55 Q25 22 100 22 Q175 22 175 55" fill="none" stroke="#C97A28" stroke-width="3"/>
+
+  <!-- Sesame seeds as keyframe nodes -->
+  <ellipse cx="55" cy="38" rx="6" ry="4" fill="#F5E6C8" transform="rotate(-15 55 38)"/>
+  <ellipse cx="85" cy="30" rx="6" ry="4" fill="#F5E6C8" transform="rotate(10 85 30)"/>
+  <ellipse cx="115" cy="28" rx="6" ry="4" fill="#F5E6C8" transform="rotate(-5 115 28)"/>
+  <ellipse cx="145" cy="35" rx="6" ry="4" fill="#F5E6C8" transform="rotate(20 145 35)"/>
+
+  <!-- Pose graph edges (subtle) -->
+  <path d="M55 38 L85 30 L115 28 L145 35" fill="none" stroke="#F5E6C8" stroke-width="2" opacity="0.5"/>
+
+  <!-- Lettuce layer -->
+  <path d="M18 68 Q35 60 52 68 Q69 60 86 68 Q103 60 120 68 Q137 60 154 68 Q171 60 182 68 L182 75 L18 75 Z" fill="#5CB85C"/>
+
+  <!-- Cheese slice -->
+  <polygon points="15,75 185,75 180,85 20,85" fill="#F4C542"/>
+
+  <!-- Meat patty with trajectory -->
+  <rect x="18" y="85" width="164" height="28" rx="3" fill="#8B4513"/>
+  <!-- Trajectory line (grill marks style) -->
+  <path d="M30 99 L55 94 L85 101 L115 93 L145 100 L170 95" fill="none" stroke="#A0522D" stroke-width="4" stroke-linecap="round"/>
+  <!-- Keyframe dots (like seasoning) -->
+  <circle cx="30" cy="99" r="4" fill="#D2691E"/>
+  <circle cx="55" cy="94" r="4" fill="#D2691E"/>
+  <circle cx="85" cy="101" r="4" fill="#D2691E"/>
+  <circle cx="115" cy="93" r="4" fill="#D2691E"/>
+  <circle cx="145" cy="100" r="4" fill="#D2691E"/>
+  <circle cx="170" cy="95" r="4" fill="#D2691E"/>
+
+  <!-- Bottom bun -->
+  <path d="M18 113 L182 113 Q185 113 185 116 L185 120 Q185 130 100 130 Q15 130 15 120 L15 116 Q15 113 18 113 Z" fill="#E8943A"/>
+  <path d="M20 120 Q20 126 100 126 Q180 126 180 120" fill="none" stroke="#C97A28" stroke-width="3"/>
+</svg>
