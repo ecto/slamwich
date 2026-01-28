@@ -3,8 +3,8 @@
 A 3D LiDAR SLAM library for Rust.
 
 <p align="center">
-  <img src="assets/rover-top.jpg" width="400" alt="BVR rover (top view)">
-  <img src="assets/rover-front.jpg" width="400" alt="BVR rover (front view)">
+  <img src="assets/slam-ui.jpg" width="500" alt="SLAM visualization">
+  <img src="assets/rover-front.jpg" width="300" alt="BVR rover">
 </p>
 
 <p align="center"><em>Extracted from the <a href="https://github.com/muni-hq/muni">Muni</a> autonomous sidewalk robot project.</em></p>
