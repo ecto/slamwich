@@ -2,9 +2,9 @@
 name = "slamwich"
 version = "0.1.0"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 description = "3D LiDAR SLAM: GICP scan matching, pose graph optimization, loop closure"
-repository = "https://github.com/muni-hq/slamwich"
+repository = "https://github.com/ecto/slamwich"
 keywords = ["slam", "lidar", "robotics", "mapping", "localization"]
 categories = ["science::robotics", "algorithms"]
 
