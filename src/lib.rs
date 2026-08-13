@@ -569,20 +569,24 @@ impl SlamProcessor {
                 self.edges.push(edge);
             }
 
-            if keyframe_id >= self.config.loop_closure_min_nodes {
-                if let Some(closure) = self.detect_loop_closure(&keyframe) {
-                    loop_closure_detected = true;
-                    self.loop_closure_count += 1;
-                    self.edges.push(closure);
+            let closure = if keyframe_id >= self.config.loop_closure_min_nodes {
+                self.detect_loop_closure(&keyframe)
+            } else {
+                None
+            };
+            self.keyframes.push(keyframe);
 
-                    if let Err(e) = self.optimize() {
-                        warn!(?e, "Pose graph optimization failed");
-                    }
+            if let Some(closure) = closure {
+                loop_closure_detected = true;
+                self.loop_closure_count += 1;
+                self.edges.push(closure);
+
+                if let Err(e) = self.optimize() {
+                    warn!(?e, "Pose graph optimization failed");
                 }
             }
 
-            self.keyframes.push(keyframe);
-            self.last_keyframe_pose = current_pose;
+            self.last_keyframe_pose = self.keyframes[keyframe_id].pose;
             self.reference_keyframe_idx = Some(keyframe_id);
 
             info!(
@@ -844,7 +848,7 @@ impl SlamProcessor {
             let predicted = pose_i.relative_to(pose_j);
             let error = self.compute_edge_error(&predicted, &edge.measurement);
 
-            let (j_i, j_j) = self.compute_jacobians(pose_i, pose_j);
+            let (j_i, j_j) = self.compute_jacobians(pose_i, pose_j, &edge.measurement);
 
             let omega = if edge.is_loop_closure {
                 let residual_norm = error.norm();
@@ -909,10 +913,45 @@ impl SlamProcessor {
 
     fn compute_jacobians(
         &self,
-        _pose_i: &Transform2D,
-        _pose_j: &Transform2D,
+        pose_i: &Transform2D,
+        pose_j: &Transform2D,
+        measured: &Transform2D,
     ) -> (Matrix3<f64>, Matrix3<f64>) {
-        (-Matrix3::identity(), Matrix3::identity())
+        const EPSILON: f64 = 1.0e-6;
+        let mut j_i = Matrix3::zeros();
+        let mut j_j = Matrix3::zeros();
+
+        for axis in 0..3 {
+            let mut delta = [0.0; 3];
+            delta[axis] = EPSILON;
+            let plus = Transform2D::new(delta[0], delta[1], delta[2]);
+            delta[axis] = -EPSILON;
+            let minus = Transform2D::new(delta[0], delta[1], delta[2]);
+
+            let i_plus = self.edge_error(&(*pose_i * plus), pose_j, measured);
+            let i_minus = self.edge_error(&(*pose_i * minus), pose_j, measured);
+            let j_plus = self.edge_error(pose_i, &(*pose_j * plus), measured);
+            let j_minus = self.edge_error(pose_i, &(*pose_j * minus), measured);
+
+            for row in 0..3 {
+                j_i[(row, axis)] = residual_delta(i_plus[row], i_minus[row], row)
+                    / (2.0 * EPSILON);
+                j_j[(row, axis)] = residual_delta(j_plus[row], j_minus[row], row)
+                    / (2.0 * EPSILON);
+            }
+        }
+
+        (j_i, j_j)
+    }
+
+    fn edge_error(
+        &self,
+        pose_i: &Transform2D,
+        pose_j: &Transform2D,
+        measured: &Transform2D,
+    ) -> Vector3<f64> {
+        let predicted = pose_i.relative_to(pose_j);
+        self.compute_edge_error(&predicted, measured)
     }
 
     fn apply_update(&mut self, dx: &DVector<f64>) {
@@ -921,6 +960,14 @@ impl SlamProcessor {
             let delta = Transform2D::new(dx[idx], dx[idx + 1], dx[idx + 2]);
             keyframe.pose = &keyframe.pose * &delta;
         }
+    }
+}
+
+fn residual_delta(plus: f64, minus: f64, row: usize) -> f64 {
+    if row == 2 {
+        normalize_angle(plus - minus)
+    } else {
+        plus - minus
     }
 }
 
@@ -1023,6 +1070,115 @@ mod tests {
         let result = processor.process_scan(&scan2);
         assert!(result.is_some());
         assert_eq!(processor.keyframes.len(), 2);
+    }
+
+    #[test]
+    fn test_loop_closure_optimization_uses_inserted_keyframe() {
+        let config = SlamConfig {
+            keyframe_distance: 0.1,
+            loop_closure_min_nodes: 2,
+            loop_closure_threshold: 0.0,
+            loop_closure_search_radius: 20.0,
+            loop_closure_max_disagreement_sigma: f64::INFINITY,
+            ..SlamConfig::default()
+        };
+        let mut processor = SlamProcessor::new(config);
+
+        for x in [0.0, 0.5, 1.0, 0.0] {
+            processor.update_odometry(&Pose {
+                x,
+                y: 0.0,
+                theta: 0.0,
+            });
+            processor.process_scan(&make_room_scan(x as f32, 0.0));
+        }
+
+        assert!(processor.loop_closure_count() > 0);
+        assert!(processor.edges().iter().all(|edge| {
+            edge.from_id < processor.keyframe_count() && edge.to_id < processor.keyframe_count()
+        }));
+    }
+
+    fn pose_graph_error(processor: &SlamProcessor) -> f64 {
+        processor
+            .edges
+            .iter()
+            .map(|edge| {
+                let predicted = processor.keyframes[edge.from_id]
+                    .pose
+                    .relative_to(&processor.keyframes[edge.to_id].pose);
+                processor
+                    .compute_edge_error(&predicted, &edge.measurement)
+                    .norm_squared()
+            })
+            .sum()
+    }
+
+    #[test]
+    fn test_pose_graph_optimization_converges_on_curved_loop() {
+        let reference = [
+            Transform2D::new(0.0, 0.0, 0.0),
+            Transform2D::new(2.0, 0.0, 0.35),
+            Transform2D::new(3.5, 1.2, 0.9),
+            Transform2D::new(3.0, 3.0, 1.8),
+            Transform2D::new(1.1, 3.1, 2.7),
+            Transform2D::new(0.2, 0.3, -0.1),
+        ];
+        let mut processor = SlamProcessor::new(SlamConfig {
+            huber_threshold: 100.0,
+            ..SlamConfig::default()
+        });
+        let scan = Arc::new(PointCloud::new(Vec::new()));
+
+        for (id, pose) in reference.iter().enumerate() {
+            let drift = Transform2D::new(id as f64 * 0.12, id as f64 * -0.08, id as f64 * 0.04);
+            processor.keyframes.push(Keyframe {
+                id,
+                pose: *pose * drift,
+                scan: scan.clone(),
+                timestamp: Instant::now(),
+                descriptor: None,
+            });
+        }
+
+        for id in 0..reference.len() - 1 {
+            processor.edges.push(PoseGraphEdge {
+                from_id: id,
+                to_id: id + 1,
+                measurement: reference[id].relative_to(&reference[id + 1]),
+                information: Matrix3::identity() * 100.0,
+                is_loop_closure: false,
+            });
+        }
+        processor.edges.push(PoseGraphEdge {
+            from_id: 0,
+            to_id: reference.len() - 1,
+            measurement: reference[0].relative_to(&reference[reference.len() - 1]),
+            information: Matrix3::identity() * 100.0,
+            is_loop_closure: true,
+        });
+
+        let error_before = pose_graph_error(&processor);
+        processor.optimize().unwrap();
+        let error_after = pose_graph_error(&processor);
+        let end_error = processor.keyframes.last().unwrap().pose.relative_to(
+            &reference[reference.len() - 1],
+        );
+
+        assert!(error_after < error_before * 1.0e-4);
+        assert!(end_error.translation().norm() < 1.0e-3);
+        assert!(end_error.rotation().abs() < 1.0e-3);
+    }
+
+    #[test]
+    fn test_residual_delta_wraps_angle_boundary() {
+        let epsilon = 1.0e-6;
+        let delta = residual_delta(
+            -std::f64::consts::PI + epsilon,
+            std::f64::consts::PI - epsilon,
+            2,
+        );
+        assert!((delta - 2.0 * epsilon).abs() < 1.0e-12);
     }
 
     #[test]
