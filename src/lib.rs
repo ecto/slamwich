@@ -569,20 +569,24 @@ impl SlamProcessor {
                 self.edges.push(edge);
             }
 
-            if keyframe_id >= self.config.loop_closure_min_nodes {
-                if let Some(closure) = self.detect_loop_closure(&keyframe) {
-                    loop_closure_detected = true;
-                    self.loop_closure_count += 1;
-                    self.edges.push(closure);
+            let closure = if keyframe_id >= self.config.loop_closure_min_nodes {
+                self.detect_loop_closure(&keyframe)
+            } else {
+                None
+            };
+            self.keyframes.push(keyframe);
 
-                    if let Err(e) = self.optimize() {
-                        warn!(?e, "Pose graph optimization failed");
-                    }
+            if let Some(closure) = closure {
+                loop_closure_detected = true;
+                self.loop_closure_count += 1;
+                self.edges.push(closure);
+
+                if let Err(e) = self.optimize() {
+                    warn!(?e, "Pose graph optimization failed");
                 }
             }
 
-            self.keyframes.push(keyframe);
-            self.last_keyframe_pose = current_pose;
+            self.last_keyframe_pose = self.keyframes[keyframe_id].pose;
             self.reference_keyframe_idx = Some(keyframe_id);
 
             info!(
@@ -1023,6 +1027,33 @@ mod tests {
         let result = processor.process_scan(&scan2);
         assert!(result.is_some());
         assert_eq!(processor.keyframes.len(), 2);
+    }
+
+    #[test]
+    fn test_loop_closure_optimization_uses_inserted_keyframe() {
+        let config = SlamConfig {
+            keyframe_distance: 0.1,
+            loop_closure_min_nodes: 2,
+            loop_closure_threshold: 0.0,
+            loop_closure_search_radius: 20.0,
+            loop_closure_max_disagreement_sigma: f64::INFINITY,
+            ..SlamConfig::default()
+        };
+        let mut processor = SlamProcessor::new(config);
+
+        for x in [0.0, 0.5, 1.0, 0.0] {
+            processor.update_odometry(&Pose {
+                x,
+                y: 0.0,
+                theta: 0.0,
+            });
+            processor.process_scan(&make_room_scan(x as f32, 0.0));
+        }
+
+        assert!(processor.loop_closure_count() > 0);
+        assert!(processor.edges().iter().all(|edge| {
+            edge.from_id < processor.keyframe_count() && edge.to_id < processor.keyframe_count()
+        }));
     }
 
     #[test]
