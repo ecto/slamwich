@@ -34,6 +34,8 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 use tracing::{debug, info, warn};
 
+#[cfg(feature = "tang")]
+pub mod graph;
 mod imu_preintegration;
 mod persistence;
 mod point_source;
