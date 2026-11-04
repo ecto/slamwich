@@ -17,6 +17,7 @@
 
 - **3D GICP scan matching** — Robust point-to-plane ICP with local covariance weighting
 - **Any range sensor** — `PointSource` for LiDAR, stereo (σz ∝ z²/(f·b)) and RGB-D, with FOV and range limits in the source
+- **Factor-graph smoother** (feature `tang`) — sliding-window graph of odometry, gyro, scan matches, landmarks, ground plane and loop closures; residuals are [tang](https://crates.io/crates/tang-ad) expressions with reverse-mode Jacobians, LM + Huber, Schur marginalisation
 - **Degeneracy detection** — Hessian eigen-analysis flags unobservable directions (a corridor, a single wall); GICP corrects only what the scene constrains and reports honest covariance
 - **Pose graph optimization** — Gauss-Newton with Huber robust weighting for loop closures
 - **Loop closure detection** — Scan context descriptors for fast, rotation-invariant place recognition
