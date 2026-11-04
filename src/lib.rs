@@ -3,7 +3,8 @@
 //! A 3D LiDAR SLAM library for Rust.
 //!
 //! Provides:
-//! - 3D GICP scan matching for robust pose estimation
+//! - 3D GICP scan matching for robust pose estimation, from any [`PointSource`]
+//!   (LiDAR, stereo, RGB-D) with per-point noise and degeneracy detection
 //! - Pose graph with sequential odometry edges
 //! - Loop closure detection via scan context descriptors
 //! - EKF-based pose estimation with odometry and scan match fusion
@@ -35,6 +36,7 @@ use tracing::{debug, info, warn};
 
 mod imu_preintegration;
 mod persistence;
+mod point_source;
 mod scan_context;
 mod scan_matcher;
 pub mod transforms;
@@ -47,7 +49,10 @@ pub use persistence::{MapError, PersistenceConfig};
 pub use scan_context::{
     ScanContextCandidate, ScanContextConfig, ScanContextDatabase, ScanContextDescriptor,
 };
-pub use scan_matcher::{CorrelativeScanMatcher, ScanMatchConfig, ScanMatchResult};
+pub use point_source::{LidarSource, PointSource, RgbdSource, StereoSource};
+pub use scan_matcher::{
+    CorrelativeScanMatcher, Degeneracy, ScanMatchConfig, ScanMatchResult, UNOBSERVABLE_VARIANCE,
+};
 pub use transforms::{normalize_angle, Transform2D};
 pub use types::{Point3D, PointCloud, Pose};
 
@@ -363,6 +368,7 @@ impl SlamProcessor {
             convergence_threshold: config.convergence_threshold,
             max_correspondence_dist: config.max_correspondence_dist,
             min_overlap: config.min_overlap,
+            ..ScanMatchConfig::default()
         };
 
         let reloc_scan_config = ScanMatchConfig {
@@ -373,6 +379,7 @@ impl SlamProcessor {
             convergence_threshold: config.convergence_threshold,
             max_correspondence_dist: 5.0,
             min_overlap: 0.1,
+            ..ScanMatchConfig::default()
         };
 
         let ekf = PoseEkf::new(&config);

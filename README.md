@@ -16,6 +16,8 @@
 ## Features
 
 - **3D GICP scan matching** — Robust point-to-plane ICP with local covariance weighting
+- **Any range sensor** — `PointSource` for LiDAR, stereo (σz ∝ z²/(f·b)) and RGB-D, with FOV and range limits in the source
+- **Degeneracy detection** — Hessian eigen-analysis flags unobservable directions (a corridor, a single wall); GICP corrects only what the scene constrains and reports honest covariance
 - **Pose graph optimization** — Gauss-Newton with Huber robust weighting for loop closures
 - **Loop closure detection** — Scan context descriptors for fast, rotation-invariant place recognition
 - **EKF state estimation** — Fuses odometry with scan match corrections
